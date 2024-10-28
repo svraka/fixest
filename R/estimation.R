@@ -1052,8 +1052,13 @@ feols = function(fml, data, vcov, weights, offset, subset, split, fsplit, split.
 
           X_demean = vars_demean$X_demean
           y_demean = vars_demean$y_demean
+          if (mem.clean) {
+            rm(vars_demean)
+          }
 
           if(do_iv){
+
+            if (mem.clean) gc()
 
             iv_vars_demean = cpp_demean(iv_lhs, iv.mat, weights, iterMax = fixef.iter,
                                         diffMax = fixef.tol, r_nb_id_Q = fixef_sizes,
@@ -1067,6 +1072,10 @@ feols = function(fml, data, vcov, weights, offset, subset, split, fsplit, split.
 
             iv.mat_demean = iv_vars_demean$X_demean
             iv_lhs_demean = iv_vars_demean$y_demean
+
+            if (mem.clean) {
+              rm(iv_vars_demean)
+            }
           }
 
         }
@@ -1076,6 +1085,7 @@ feols = function(fml, data, vcov, weights, offset, subset, split, fsplit, split.
 
           if(isFixef){
             
+            if (mem.clean) gc()
             iv_products = cpp_iv_products(X = X_demean, y = y_demean,
                                           Z = iv.mat_demean, u = iv_lhs_demean,
                                           w = weights, nthreads = nthreads)
@@ -1083,12 +1093,17 @@ feols = function(fml, data, vcov, weights, offset, subset, split, fsplit, split.
             if(!is.matrix(X_all)){
               X_all = as.matrix(X_all)
             }
+            if (mem.clean) gc()
             iv_products = cpp_iv_products(X = X_all, y = my_lhs, Z = iv.mat,
                                           u = iv_lhs, w = weights, nthreads = nthreads)
+          }
+          if (mem.clean) {
+            rm(iv_lhs, iv.mat)
           }
 
         } else {
 
+          if (mem.clean) gc()
           if(isFixef){
             my_products = cpp_sparse_products(X_demean, weights, y_demean, nthreads = nthreads)
           } else {
@@ -1267,6 +1282,9 @@ feols = function(fml, data, vcov, weights, offset, subset, split, fsplit, split.
         # We precompute the solution
         iv_products = cpp_iv_products(X = X_demean, y = y_demean, Z = iv.mat_demean,
                                       u = iv_lhs_demean, w = weights, nthreads = nthreads)
+        if(mem.clean) {
+          rm(vars_demean, iv_vars_demean)
+        }
 
       }
       
@@ -1283,6 +1301,9 @@ feols = function(fml, data, vcov, weights, offset, subset, split, fsplit, split.
       } else {
         ZX_demean = cbind(iv.mat_demean, X_demean)
         ZX = cbind(iv.mat, X)
+      }
+      if (mem.clean) {
+        rm(iv.mat_demean)
       }
 
       # First stage(s)
@@ -1335,6 +1356,9 @@ feols = function(fml, data, vcov, weights, offset, subset, split, fsplit, split.
         U = do.call("cbind", U_list)
         U_demean = do.call("cbind", U_dm_list)
       }
+      if (mem.clean) {
+        rm(res_FS)
+      }
 
       colnames(U) = colnames(U_demean) = paste0("fit_", iv_lhs_names)
 
@@ -1351,6 +1375,9 @@ feols = function(fml, data, vcov, weights, offset, subset, split, fsplit, split.
       iv_prod_second = cpp_iv_product_completion(XtX = XtX, Xty = Xty, X = X_demean,
                                                  y = y_demean, U = U_demean, w = weights, 
                                                  nthreads = nthreads)
+      if (mem.clean) {
+        rm(U_demean)
+      }
 
       UXtUX = iv_prod_second$UXtUX
       UXty  = iv_prod_second$UXty
@@ -1456,6 +1483,9 @@ feols = function(fml, data, vcov, weights, offset, subset, split, fsplit, split.
 
         U = do.call("cbind", U_list)
       }
+      if (mem.clean) {
+        rm(res_FS)
+      }
 
       colnames(U) = paste0("fit_", iv_lhs_names)
 
@@ -1508,6 +1538,10 @@ feols = function(fml, data, vcov, weights, offset, subset, split, fsplit, split.
 
     if(isFixef){
       ENDO_demean = do.call(cbind, iv_lhs_demean)
+      if (mem.clean) {
+        rm(iv_lhs_demean)
+        gc()
+      }
       iv_prod_wh = cpp_iv_product_completion(XtX = UXtUX, Xty = UXty,
                                              X = UX_demean, y = y_demean, U = ENDO_demean,
                                              w = weights, nthreads = nthreads)
@@ -1515,8 +1549,15 @@ feols = function(fml, data, vcov, weights, offset, subset, split, fsplit, split.
       RHS_wh = cbind(ENDO_demean, UX_demean)
       fit_wh = ols_fit(y_demean, RHS_wh, w = weights, correct_0w = FALSE, collin.tol = collin.tol,
                        nthreads = nthreads, xwx = iv_prod_wh$UXtUX, xwy = iv_prod_wh$UXty)
+      if (mem.clean) {
+        rm(ENDO_demean, RHS_wh)
+      }
     } else {
       ENDO = do.call(cbind, iv_lhs)
+      if (mem.clean) {
+        rm(iv_lhs)
+        gc()
+      }
       iv_prod_wh = cpp_iv_product_completion(XtX = UXtUX, Xty = UXty,
                                              X = UX, y = y, U = ENDO,
                                              w = weights, nthreads = nthreads)
@@ -1524,6 +1565,9 @@ feols = function(fml, data, vcov, weights, offset, subset, split, fsplit, split.
       RHS_wh = cbind(ENDO, UX)
       fit_wh = ols_fit(y, RHS_wh, w = weights, correct_0w = FALSE, collin.tol = collin.tol,
                        nthreads = nthreads, xwx = iv_prod_wh$UXtUX, xwy = iv_prod_wh$UXty)
+      if (mem.clean) {
+        rm(ENDO, RHS_wh)
+      }
     }
 
     df1 = n_endo
@@ -1564,6 +1608,9 @@ feols = function(fml, data, vcov, weights, offset, subset, split, fsplit, split.
       stat = length(r) * (1 - cpp_ssq(r, weights) / cpp_ssr_null(resid_2nd))
       p = pchisq(stat, df, lower.tail = FALSE)
       res_second_stage$iv_sargan = list(stat = stat, p = p, df = df)
+    }
+    if (mem.clean) {
+      rm(iv.mat)
     }
 
     # extra information
